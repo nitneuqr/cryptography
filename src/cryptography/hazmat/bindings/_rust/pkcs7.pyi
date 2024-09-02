@@ -22,6 +22,11 @@ def sign_and_serialize(
     encoding: serialization.Encoding,
     options: typing.Iterable[pkcs7.PKCS7Options],
 ) -> bytes: ...
+def deserialize_and_decrypt(
+    decryptor: pkcs7.PKCS7EnvelopeDecryptor,
+    encoding: serialization.Encoding,
+    options: typing.Iterable[pkcs7.PKCS7Options],
+) -> bytes: ...
 def load_pem_pkcs7_certificates(
     data: bytes,
 ) -> list[x509.Certificate]: ...
