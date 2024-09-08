@@ -114,6 +114,31 @@ pub(crate) fn encode_der_data<'p>(
     }
 }
 
+pub(crate) fn decode_der_data<'p>(
+    py: pyo3::Python<'p>,
+    pem_tag: String,
+    data: Vec<u8>,
+    encoding: &pyo3::Bound<'p, pyo3::PyAny>,
+) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
+    if encoding.is(&types::ENCODING_DER.get(py)?) {
+        Ok(pyo3::types::PyBytes::new_bound(py, &data))
+    } else if encoding.is(&types::ENCODING_PEM.get(py)?) {
+        let pem_str = std::str::from_utf8(&data)
+            .map_err(|_| pyo3::exceptions::PyValueError::new_err("Invalid PEM data"))?;
+        let pem = pem::parse(pem_str)
+            .map_err(|_| pyo3::exceptions::PyValueError::new_err("Failed to parse PEM data"))?;
+        if pem.tag() != pem_tag {
+            return Err(pyo3::exceptions::PyValueError::new_err("PEM tag mismatch").into());
+        }
+        Ok(pyo3::types::PyBytes::new_bound(py, pem.contents()))
+    } else {
+        Err(
+            pyo3::exceptions::PyTypeError::new_err("encoding must be Encoding.DER or Encoding.PEM")
+                .into(),
+        )
+    }
+}
+
 #[pyo3::pyfunction]
 fn encode_dss_signature<'p>(
     py: pyo3::Python<'p>,
