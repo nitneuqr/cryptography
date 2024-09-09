@@ -6,6 +6,7 @@
 import email.parser
 import os
 import typing
+from email.message import EmailMessage
 
 import pytest
 
@@ -1087,6 +1088,12 @@ class TestPKCS7EnvelopeDecryptor:
         with pytest.raises(ValueError):
             decryptor.set_data(b"test")
 
+    def test_set_recipient_twice(self, backend):
+        cert, _ = _load_rsa_cert_key()
+        decryptor = pkcs7.PKCS7EnvelopeDecryptor().set_recipient(cert)
+        with pytest.raises(ValueError):
+            decryptor.set_recipient(cert)
+
     def test_unsupported_encryption(self, backend):
         cert_non_rsa, _ = _load_cert_key()
         with pytest.raises(TypeError):
@@ -1098,10 +1105,17 @@ class TestPKCS7EnvelopeDecryptor:
                 b"notacert",  # type: ignore[arg-type]
             )
 
-    def test_decrypt_no_recipient(self, backend):
-        decryptor = pkcs7.PKCS7EnvelopeDecryptor().set_data(b"test")
+    def test_set_private_key_twice(self, backend):
+        _, private_key = _load_rsa_cert_key()
+        decryptor = pkcs7.PKCS7EnvelopeDecryptor().set_private_key(private_key)
         with pytest.raises(ValueError):
-            decryptor.decrypt(serialization.Encoding.SMIME, [])
+            decryptor.set_private_key(private_key)
+
+    def test_not_a_pkey(self, backend):
+        with pytest.raises(TypeError):
+            pkcs7.PKCS7EnvelopeDecryptor().set_private_key(
+                b"notapkey",  # type: ignore[arg-type]
+            )
 
     def test_decrypt_no_data(self, backend):
         cert, _ = _load_rsa_cert_key()
@@ -1109,7 +1123,12 @@ class TestPKCS7EnvelopeDecryptor:
         with pytest.raises(ValueError):
             decryptor.decrypt(serialization.Encoding.SMIME, [])
 
-    def test_decrypt_invalid_options(self, backend):
+    def test_decrypt_no_recipient(self, backend):
+        decryptor = pkcs7.PKCS7EnvelopeDecryptor().set_data(b"test")
+        with pytest.raises(ValueError):
+            decryptor.decrypt(serialization.Encoding.SMIME, [])
+
+    def test_decrypt_no_private_key(self, backend):
         cert, _ = _load_rsa_cert_key()
         decryptor = (
             pkcs7.PKCS7EnvelopeDecryptor()
@@ -1117,10 +1136,48 @@ class TestPKCS7EnvelopeDecryptor:
             .set_recipient(cert)
         )
         with pytest.raises(ValueError):
+            decryptor.decrypt(serialization.Encoding.SMIME, [])
+
+    @pytest.fixture
+    def decryptor(self, backend) -> pkcs7.PKCS7EnvelopeDecryptor:
+        cert, private_key = _load_rsa_cert_key()
+        return (
+            pkcs7.PKCS7EnvelopeDecryptor()
+            .set_data(b"test")
+            .set_recipient(cert)
+            .set_private_key(private_key)
+        )
+
+    def test_decrypt_invalid_options(
+        self, backend, decryptor: pkcs7.PKCS7EnvelopeDecryptor
+    ):
+        with pytest.raises(ValueError):
             decryptor.decrypt(
                 serialization.Encoding.SMIME,
                 [b"invalid"],  # type: ignore[list-item]
             )
+
+    def test_decrypt_invalid_encoding(
+        self, backend, decryptor: pkcs7.PKCS7EnvelopeDecryptor
+    ):
+        with pytest.raises(ValueError):
+            decryptor.decrypt(serialization.Encoding.Raw, [])
+
+    @pytest.mark.parametrize(
+        "invalid_options",
+        [
+            [pkcs7.PKCS7Options.NoAttributes],
+            [pkcs7.PKCS7Options.NoCapabilities],
+            [pkcs7.PKCS7Options.NoCerts],
+            [pkcs7.PKCS7Options.DetachedSignature],
+            [pkcs7.PKCS7Options.Binary, pkcs7.PKCS7Options.Text],
+        ],
+    )
+    def test_encrypt_invalid_encryption_options(
+        self, backend, invalid_options, decryptor: pkcs7.PKCS7EnvelopeDecryptor
+    ):
+        with pytest.raises(ValueError):
+            decryptor.decrypt(serialization.Encoding.DER, invalid_options)
 
     @pytest.mark.parametrize(
         ("encoding", "options"),
@@ -1134,7 +1191,6 @@ class TestPKCS7EnvelopeDecryptor:
         ],
     )
     def test_smime_decrypt(self, backend, encoding, options):
-        """Testing the round-trip of encrypting and decrypting data."""
         # Encrypt some data
         plain = b"hello world\n"
         cert, private_key = _load_rsa_cert_key()
@@ -1153,6 +1209,23 @@ class TestPKCS7EnvelopeDecryptor:
 
         decrypted = decryptor.decrypt(encoding, options)
         assert decrypted == plain
+
+    def test_smime_decrypt_not_encrypted(self, backend):
+        # Create a plain email
+        email_message = EmailMessage()
+        email_message.set_content("hello world\n")
+
+        # Test decryption failure with plain email
+        cert, private_key = _load_rsa_cert_key()
+        decryptor = (
+            pkcs7.PKCS7EnvelopeDecryptor()
+            .set_data(email_message.as_bytes())
+            .set_recipient(cert)
+            .set_private_key(private_key)
+        )
+
+        with pytest.raises(ValueError):
+            decryptor.decrypt(serialization.Encoding.SMIME, [])
 
 
 @pytest.mark.supported(
@@ -1253,3 +1326,14 @@ class TestPKCS7EnvelopeBuilderUnsupported:
     def test_envelope_builder_unsupported(self, backend):
         with raises_unsupported_algorithm(_Reasons.UNSUPPORTED_PADDING):
             pkcs7.PKCS7EnvelopeBuilder()
+
+
+@pytest.mark.supported(
+    only_if=lambda backend: backend.pkcs7_supported()
+    and not backend.rsa_encryption_supported(padding.PKCS1v15()),
+    skip_message="Requires OpenSSL with no PKCS1 v1.5 padding support",
+)
+class TestPKCS7EnvelopeDecryptorUnsupported:
+    def test_envelope_builder_unsupported(self, backend):
+        with raises_unsupported_algorithm(_Reasons.UNSUPPORTED_PADDING):
+            pkcs7.PKCS7EnvelopeDecryptor()

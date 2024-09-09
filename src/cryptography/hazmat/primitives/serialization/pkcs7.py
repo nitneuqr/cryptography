@@ -306,7 +306,7 @@ class PKCS7EnvelopeDecryptor:
             raise TypeError("certificate must be a x509.Certificate")
 
         if not isinstance(certificate.public_key(), rsa.RSAPublicKey):
-            raise TypeError("Only RSA keys are supported at this time.")
+            raise TypeError("Only RSA public keys are supported at this time.")
 
         return PKCS7EnvelopeDecryptor(
             _data=self._data,
@@ -319,6 +319,11 @@ class PKCS7EnvelopeDecryptor:
     ) -> PKCS7EnvelopeDecryptor:
         if self._private_key is not None:
             raise ValueError("private key may only be set once")
+
+        if not isinstance(private_key, rsa.RSAPrivateKey):
+            raise TypeError(
+                "Only RSA private keys are supported at this time."
+            )
 
         return PKCS7EnvelopeDecryptor(
             _data=self._data,
