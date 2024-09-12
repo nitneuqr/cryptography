@@ -105,6 +105,50 @@ fn pkcs7_verify(
 
 #[cfg(not(CRYPTOGRAPHY_IS_BORINGSSL))]
 #[pyo3::pyfunction]
+#[pyo3(signature = (msg, cert_recipients, encoding, options))]
+fn pkcs7_encrypt<'p>(
+    py: pyo3::Python<'p>,
+    msg: CffiBuf<'p>,
+    cert_recipients: Vec<pyo3::Bound<'p, PyCertificate>>,
+    encoding: pyo3::Bound<'p, pyo3::PyAny>,
+    options: pyo3::Bound<'p, pyo3::types::PyList>,
+) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
+    // Prepare the certificates
+    let mut certs_stack = openssl::stack::Stack::new()?;
+    for cert in &cert_recipients {
+        let der = asn1::write_single(cert.get().raw.borrow_dependent())?;
+        certs_stack.push(openssl::x509::X509::from_der(&der)?)?;
+    }
+
+    // Prepare the cipher
+    let cipher = openssl::symm::Cipher::aes_128_cbc();
+
+    // Prepare the options
+    let mut flags = openssl::pkcs7::Pkcs7Flags::empty();
+    if options.contains(types::PKCS7_TEXT.get(py)?)? {
+        flags |= openssl::pkcs7::Pkcs7Flags::TEXT;
+    }
+    if options.contains(types::PKCS7_BINARY.get(py)?)? {
+        flags |= openssl::pkcs7::Pkcs7Flags::BINARY;
+    }
+
+    let p7 = openssl::pkcs7::Pkcs7::encrypt(&certs_stack, msg.as_bytes(), cipher, flags).unwrap();
+
+    if encoding.is(&types::ENCODING_DER.get(py)?) {
+        Ok(pyo3::types::PyBytes::new_bound(py, &p7.to_der().unwrap()))
+    } else if encoding.is(&types::ENCODING_PEM.get(py)?) {
+        Ok(pyo3::types::PyBytes::new_bound(py, &p7.to_pem().unwrap()))
+    } else {
+        Ok(pyo3::types::PyBytes::new_bound(
+            py,
+            &p7.to_smime(&[], openssl::pkcs7::Pkcs7Flags::empty())
+                .unwrap(),
+        ))
+    }
+}
+
+#[cfg(not(CRYPTOGRAPHY_IS_BORINGSSL))]
+#[pyo3::pyfunction]
 #[pyo3(signature = (encoding, msg, pkey, cert_recipient, options))]
 fn pkcs7_decrypt<'p>(
     py: pyo3::Python<'p>,
@@ -152,6 +196,9 @@ pub(crate) mod test_support {
     #[cfg(not(CRYPTOGRAPHY_IS_BORINGSSL))]
     #[pymodule_export]
     use super::pkcs7_decrypt;
+    #[cfg(not(CRYPTOGRAPHY_IS_BORINGSSL))]
+    #[pymodule_export]
+    use super::pkcs7_encrypt;
     #[cfg(not(CRYPTOGRAPHY_IS_BORINGSSL))]
     #[pymodule_export]
     use super::pkcs7_verify;

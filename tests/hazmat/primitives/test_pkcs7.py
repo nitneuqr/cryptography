@@ -1194,10 +1194,9 @@ class TestPKCS7EnvelopeDecryptor:
         # Encrypt some data
         plain = b"hello world\n"
         cert, private_key = _load_rsa_cert_key()
-        builder = (
-            pkcs7.PKCS7EnvelopeBuilder().set_data(plain).add_recipient(cert)
+        enveloped = test_support.pkcs7_encrypt(
+            plain, [cert], encoding, options
         )
-        enveloped = builder.encrypt(encoding, options)
 
         # Test decryption
         decryptor = (
