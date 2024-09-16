@@ -105,13 +105,14 @@ fn pkcs7_verify(
 
 #[cfg(not(CRYPTOGRAPHY_IS_BORINGSSL))]
 #[pyo3::pyfunction]
-#[pyo3(signature = (msg, cert_recipients, encoding, options))]
+#[pyo3(signature = (cert_recipients, msg, cipher, options, encoding))]
 fn pkcs7_encrypt<'p>(
     py: pyo3::Python<'p>,
-    msg: CffiBuf<'p>,
     cert_recipients: Vec<pyo3::Bound<'p, PyCertificate>>,
-    encoding: pyo3::Bound<'p, pyo3::PyAny>,
+    msg: CffiBuf<'p>,
+    cipher: pyo3::Bound<'p, pyo3::types::PyString>,
     options: pyo3::Bound<'p, pyo3::types::PyList>,
+    encoding: pyo3::Bound<'p, pyo3::PyAny>,
 ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
     // Prepare the certificates
     let mut certs_stack = openssl::stack::Stack::new()?;
@@ -121,7 +122,11 @@ fn pkcs7_encrypt<'p>(
     }
 
     // Prepare the cipher
-    let cipher = openssl::symm::Cipher::aes_128_cbc();
+    // SAFETY: No pre-conditions
+    let cipher = unsafe {
+        let ptr = openssl_sys::EVP_get_cipherbyname(cipher.to_str()?.as_ptr() as *const i8);
+        openssl::symm::Cipher::from_ptr(ptr as *mut _)
+    };
 
     // Prepare the options
     let mut flags = openssl::pkcs7::Pkcs7Flags::empty();

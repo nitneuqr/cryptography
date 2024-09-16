@@ -1195,7 +1195,7 @@ class TestPKCS7EnvelopeDecryptor:
         plain = b"hello world\n"
         cert, private_key = _load_rsa_cert_key()
         enveloped = test_support.pkcs7_encrypt(
-            plain, [cert], encoding, options
+            [cert], plain, "aes-128-cbc", encoding, options
         )
 
         # Test decryption
@@ -1208,6 +1208,25 @@ class TestPKCS7EnvelopeDecryptor:
 
         decrypted = decryptor.decrypt(encoding, options)
         assert decrypted == plain
+
+    def test_smime_decrypt_algorithm_not_supported(self, backend):
+        # Encrypt some data
+        plain = b"hello world\n"
+        cert, private_key = _load_rsa_cert_key()
+        enveloped = test_support.pkcs7_encrypt(
+            [cert], plain, "aes-256-cbc", serialization.Encoding.DER, []
+        )
+
+        # Test decryption
+        decryptor = (
+            pkcs7.PKCS7EnvelopeDecryptor()
+            .set_data(enveloped)
+            .set_recipient(cert)
+            .set_private_key(private_key)
+        )
+
+        with pytest.raises(ValueError):
+            decryptor.decrypt(serialization.Encoding.DER, [])
 
     def test_smime_decrypt_not_encrypted(self, backend):
         # Create a plain email
