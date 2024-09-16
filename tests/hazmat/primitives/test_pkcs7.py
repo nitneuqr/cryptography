@@ -10,7 +10,7 @@ from email.message import EmailMessage
 
 import pytest
 
-from cryptography import x509
+from cryptography import exceptions, x509
 from cryptography.exceptions import _Reasons
 from cryptography.hazmat.bindings._rust import test_support
 from cryptography.hazmat.primitives import hashes, serialization
@@ -851,6 +851,22 @@ def _load_rsa_cert_key():
     return cert, key
 
 
+def _load_another_rsa_cert_key():
+    key = load_vectors_from_file(
+        os.path.join("pkcs7", "rsa_key.pem"),
+        lambda pemfile: serialization.load_pem_private_key(
+            pemfile.read(), None, unsafe_skip_rsa_key_validation=True
+        ),
+        mode="rb",
+    )
+    cert = load_vectors_from_file(
+        os.path.join("pkcs7", "rsa_ca.pem"),
+        loader=lambda pemfile: x509.load_pem_x509_certificate(pemfile.read()),
+        mode="rb",
+    )
+    return cert, key
+
+
 @pytest.mark.supported(
     only_if=lambda backend: backend.pkcs7_supported()
     and backend.rsa_encryption_supported(padding.PKCS1v15()),
@@ -1195,7 +1211,7 @@ class TestPKCS7EnvelopeDecryptor:
         plain = b"hello world\n"
         cert, private_key = _load_rsa_cert_key()
         enveloped = test_support.pkcs7_encrypt(
-            plain, [cert], encoding, options
+            [cert], plain, b"aes-128-cbc", options, encoding
         )
 
         # Test decryption
@@ -1209,7 +1225,69 @@ class TestPKCS7EnvelopeDecryptor:
         decrypted = decryptor.decrypt(encoding, options)
         assert decrypted == plain
 
-    def test_smime_decrypt_not_encrypted(self, backend):
+    def test_smime_decrypt_no_recipient_match(self, backend):
+        # Encrypt some data with one RSA chain
+        plain = b"hello world\n"
+        cert, _ = _load_rsa_cert_key()
+        enveloped = test_support.pkcs7_encrypt(
+            [cert], plain, b"aes-128-cbc", [], serialization.Encoding.DER
+        )
+
+        # Test decryption with another RSA chain
+        another_cert, another_private_key = _load_another_rsa_cert_key()
+        decryptor = (
+            pkcs7.PKCS7EnvelopeDecryptor()
+            .set_data(enveloped)
+            .set_recipient(another_cert)
+            .set_private_key(another_private_key)
+        )
+
+        with pytest.raises(x509.AttributeNotFound):
+            decryptor.decrypt(serialization.Encoding.DER, [])
+
+    def test_smime_decrypt_algorithm_not_supported(self, backend):
+        # Encrypt some data
+        plain = b"hello world\n"
+        cert, private_key = _load_rsa_cert_key()
+        enveloped = test_support.pkcs7_encrypt(
+            [cert], plain, b"aes-256-cbc", [], serialization.Encoding.DER
+        )
+
+        # Test decryption
+        decryptor = (
+            pkcs7.PKCS7EnvelopeDecryptor()
+            .set_data(enveloped)
+            .set_recipient(cert)
+            .set_private_key(private_key)
+        )
+
+        with pytest.raises(exceptions.UnsupportedAlgorithm):
+            decryptor.decrypt(serialization.Encoding.DER, [])
+
+    def test_smime_decrypt_not_enveloped(self, backend):
+        # Create a signed email
+        cert, key = _load_cert_key()
+        options = [pkcs7.PKCS7Options.DetachedSignature]
+        builder = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(b"hello world")
+            .add_signer(cert, key, hashes.SHA256())
+        )
+        signed = builder.sign(serialization.Encoding.DER, options)
+
+        # Test decryption failure with signed email
+        cert, private_key = _load_rsa_cert_key()
+        decryptor = (
+            pkcs7.PKCS7EnvelopeDecryptor()
+            .set_data(signed)
+            .set_recipient(cert)
+            .set_private_key(private_key)
+        )
+
+        with pytest.raises(exceptions.UnsupportedAlgorithm):
+            decryptor.decrypt(serialization.Encoding.DER, [])
+
+    def test_smime_decrypt_smime_not_encrypted(self, backend):
         # Create a plain email
         email_message = EmailMessage()
         email_message.set_content("hello world\n")

@@ -14,10 +14,11 @@ class TestCertificate:
 
 def test_parse_certificate(data: bytes) -> TestCertificate: ...
 def pkcs7_encrypt(
-    msg: bytes,
     cert_recipients: list[x509.Certificate],
-    encoding: serialization.Encoding,
+    msg: bytes,
+    cipher: bytes,
     options: list[pkcs7.PKCS7Options],
+    encoding: serialization.Encoding,
 ) -> bytes: ...
 def pkcs7_decrypt(
     encoding: serialization.Encoding,

@@ -200,38 +200,13 @@ fn deserialize_and_decrypt<'p>(
         .getattr(pyo3::intern!(py, "_private_key"))?
         .extract()?;
 
-    //  Deserialize the content info
+    // Deserialize the content info
     let content_info =
         asn1::parse_single::<pkcs7::ContentInfo<'_>>(extracted_data.as_bytes()).unwrap();
     let plain_content = match content_info.content {
         pkcs7::Content::EnvelopedData(data) => {
             // Extract enveloped data (if possible)
             let enveloped_data = data.into_inner();
-
-            // Get encrypted content
-            let encrypted_content = enveloped_data
-                .encrypted_content_info
-                .encrypted_content
-                .unwrap();
-
-            // Get algorithm
-            let algorithm = enveloped_data
-                .encrypted_content_info
-                .content_encryption_algorithm;
-
-            // Get initialization vector
-            let iv = match algorithm.params {
-                AlgorithmParameters::Aes128Cbc(iv) => pyo3::types::PyBytes::new_bound(py, &iv),
-                AlgorithmParameters::Aes256Cbc(iv) => pyo3::types::PyBytes::new_bound(py, &iv),
-                _ => {
-                    return Err(CryptographyError::from(
-                        exceptions::UnsupportedAlgorithm::new_err((
-                            "Only AES-128-CBC or AES-256-CBC are currently supported for decryption.",
-                            exceptions::Reasons::UNSUPPORTED_SERIALIZATION,
-                        )),
-                    ));
-                }
-            };
 
             // Get recipients, and the one matching with the given certificate (if any)
             let mut recipient_infos = enveloped_data.recipient_infos.unwrap_read().clone();
@@ -245,10 +220,10 @@ fn deserialize_and_decrypt<'p>(
             let recipient_info = match found_recipient_info {
                 Some(info) => info,
                 None => {
+                    // Unsure if this is the right exception to raise
                     return Err(CryptographyError::from(
                         exceptions::AttributeNotFound::new_err((
                             "No recipient found that matches the given certificate.",
-                            exceptions::Reasons::UNSUPPORTED_CIPHER,
                         )),
                     ));
                 }
@@ -263,24 +238,34 @@ fn deserialize_and_decrypt<'p>(
                 )?
                 .extract::<pyo3::pybacked::PyBackedBytes>()?;
 
-            // Decrypt the content using the key
-            // Should we use Python or Rust for the algorithm?
-            // TODO: are there any other algorithm to use for decryption in here?
-            let py_algorithm = match algorithm.params {
-                AlgorithmParameters::Aes128Cbc(_) => types::AES128.get(py)?.call1((key,))?,
-                AlgorithmParameters::Aes256Cbc(_) => types::AES256.get(py)?.call1((key,))?,
+            // Get algorithm
+            // TODO: implement all the possible algorithms
+            let algorithm_identifier = enveloped_data
+                .encrypted_content_info
+                .content_encryption_algorithm;
+            let (algorithm, mode) = match algorithm_identifier.params {
+                AlgorithmParameters::Aes128Cbc(iv) => (
+                    types::AES128.get(py)?.call1((key,))?,
+                    types::CBC
+                        .get(py)?
+                        .call1((pyo3::types::PyBytes::new_bound(py, &iv),))?,
+                ),
                 _ => {
                     return Err(CryptographyError::from(
                         exceptions::UnsupportedAlgorithm::new_err((
-                            "Only AES-128-CBC or AES-256-CBC are currently supported for decryption.",
+                            "Only AES-128-CBC is currently supported for decryption.",
                             exceptions::Reasons::UNSUPPORTED_SERIALIZATION,
                         )),
                     ));
                 }
             };
-            let cbc_mode = types::CBC.get(py)?.call1((iv,))?;
-            let decrypted_content =
-                symmetric_decrypt(py, py_algorithm, cbc_mode, encrypted_content)?;
+
+            // Decrypt the content using the key and proper algorithm
+            let encrypted_content = enveloped_data
+                .encrypted_content_info
+                .encrypted_content
+                .unwrap();
+            let decrypted_content = symmetric_decrypt(py, algorithm, mode, encrypted_content)?;
             pyo3::types::PyBytes::new_bound(py, decrypted_content.as_slice())
         }
         _ => {
