@@ -1115,11 +1115,7 @@ class TestPKCS7Decrypt:
 
     @pytest.mark.parametrize(
         "invalid_options",
-        [
-            [b"invalid"],
-            [pkcs7.PKCS7Options.NoAttributes],
-            [pkcs7.PKCS7Options.Binary],
-        ],
+        [[b"invalid"], [pkcs7.PKCS7Options.Binary]],
     )
     def test_pkcs7_decrypt_invalid_options(
         self, backend, invalid_options, data, certificate, private_key
