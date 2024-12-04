@@ -16,6 +16,7 @@ from cryptography.exceptions import UnsupportedAlgorithm, _Reasons
 from cryptography.hazmat.bindings._rust import pkcs7 as rust_pkcs7
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+from cryptography.hazmat.primitives.ciphers import algorithms, modes
 from cryptography.utils import _check_byteslike
 
 load_pem_pkcs7_certificates = rust_pkcs7.load_pem_pkcs7_certificates
@@ -184,6 +185,8 @@ class PKCS7EnvelopeBuilder:
         *,
         _data: bytes | None = None,
         _recipients: list[x509.Certificate] | None = None,
+        _algorithm: type[algorithms.CipherAlgorithm] | None = None,
+        _mode: type[modes.Mode] | None = None,
     ):
         from cryptography.hazmat.backends.openssl.backend import (
             backend as ossl,
@@ -198,12 +201,22 @@ class PKCS7EnvelopeBuilder:
         self._data = _data
         self._recipients = _recipients if _recipients is not None else []
 
+        # The default content cipher is AES-128-CBC, which the S/MIME v3.2 RFC
+        # specifies as MUST support (https://datatracker.ietf.org/doc/html/rfc5751#section-2.7)
+        self._algorithm = _algorithm or algorithms.AES128
+        self._mode = _mode or modes.CBC
+
     def set_data(self, data: bytes) -> PKCS7EnvelopeBuilder:
         _check_byteslike("data", data)
         if self._data is not None:
             raise ValueError("data may only be set once")
 
-        return PKCS7EnvelopeBuilder(_data=data, _recipients=self._recipients)
+        return PKCS7EnvelopeBuilder(
+            _data=data,
+            _recipients=self._recipients,
+            _algorithm=self._algorithm,
+            _mode=self._mode,
+        )
 
     def add_recipient(
         self,
@@ -221,6 +234,27 @@ class PKCS7EnvelopeBuilder:
                 *self._recipients,
                 certificate,
             ],
+            _algorithm=self._algorithm,
+            _mode=self._mode,
+        )
+
+    def set_cipher(
+        self,
+        algorithm: type[algorithms.CipherAlgorithm],
+        mode: type[modes.Mode],
+    ) -> PKCS7EnvelopeBuilder:
+        if self._algorithm is not None or self._mode is not None:
+            raise ValueError("Cipher may only be set once")
+        if not issubclass(algorithm, algorithms.CipherAlgorithm):
+            raise TypeError("Algorithm must be a CipherAlgorithm")
+        if not issubclass(mode, modes.Mode):
+            raise TypeError("Mode must be a Mode")
+
+        return PKCS7EnvelopeBuilder(
+            _data=self._data,
+            _recipients=self._recipients,
+            _algorithm=algorithm,
+            _mode=mode,
         )
 
     def encrypt(
