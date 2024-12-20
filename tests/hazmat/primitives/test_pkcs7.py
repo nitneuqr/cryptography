@@ -15,7 +15,7 @@ from cryptography.exceptions import _Reasons
 from cryptography.hazmat.bindings._rust import test_support
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, padding, rsa
-from cryptography.hazmat.primitives.ciphers import algorithms
+from cryptography.hazmat.primitives.ciphers import algorithms, modes
 from cryptography.hazmat.primitives.serialization import pkcs7
 from tests.x509.test_x509 import _generate_ca_and_leaf
 
@@ -1098,7 +1098,7 @@ class TestPKCS7EnvelopeBuilder:
         builder = (
             pkcs7.PKCS7EnvelopeBuilder()
             .set_data(b"hello world\n")
-            .set_algorithm(camellia)
+            .set_cipher(camellia, modes.CBC)
             .add_recipient(cert)
         )
 
@@ -1182,7 +1182,7 @@ class TestPKCS7Decrypt:
         builder = (
             pkcs7.PKCS7EnvelopeBuilder()
             .set_data(data)
-            .set_algorithm(algorithms.AES256)
+            .set_cipher(algorithms.AES256, modes.CBC)
             .add_recipient(certificate)
         )
         enveloped = builder.encrypt(serialization.Encoding.PEM, [])

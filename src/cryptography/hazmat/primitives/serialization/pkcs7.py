@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.ciphers import (
     CipherAlgorithm,
     algorithms,
+    modes,
 )
 from cryptography.utils import _check_byteslike
 
@@ -189,6 +190,7 @@ class PKCS7EnvelopeBuilder:
         _data: bytes | None = None,
         _recipients: list[x509.Certificate] | None = None,
         _algorithm: type[CipherAlgorithm] | None = None,
+        _mode: type[modes.Mode] | None = None,
     ):
         from cryptography.hazmat.backends.openssl.backend import (
             backend as ossl,
@@ -203,9 +205,10 @@ class PKCS7EnvelopeBuilder:
         self._data = _data
         self._recipients = _recipients if _recipients is not None else []
 
-        # The default content encryption algorithm is AES-128, which the S/MIME
-        # v3.2 RFC specifies as MUST support (https://datatracker.ietf.org/doc/html/rfc5751#section-2.7)
+        # The default content cipher is AES-128-CBC, which the S/MIME v3.2 RFC
+        # specifies as MUST support (https://datatracker.ietf.org/doc/html/rfc5751#section-2.7)
         self._algorithm = _algorithm or algorithms.AES128
+        self._mode = _mode or modes.CBC
 
     def set_data(self, data: bytes) -> PKCS7EnvelopeBuilder:
         _check_byteslike("data", data)
@@ -216,6 +219,7 @@ class PKCS7EnvelopeBuilder:
             _data=data,
             _recipients=self._recipients,
             _algorithm=self._algorithm,
+            _mode=self._mode,
         )
 
     def add_recipient(
@@ -235,18 +239,22 @@ class PKCS7EnvelopeBuilder:
                 certificate,
             ],
             _algorithm=self._algorithm,
+            _mode=self._mode,
         )
 
-    def set_algorithm(
-        self, algorithm: type[CipherAlgorithm]
+    def set_cipher(
+        self, algorithm: type[CipherAlgorithm], mode: type[modes.Mode]
     ) -> PKCS7EnvelopeBuilder:
         if not issubclass(algorithm, CipherAlgorithm):
             raise TypeError("Algorithm must be a CipherAlgorithm")
+        if not issubclass(mode, modes.Mode):
+            raise TypeError("Mode must be a Mode")
 
         return PKCS7EnvelopeBuilder(
             _data=self._data,
             _recipients=self._recipients,
             _algorithm=algorithm,
+            _mode=mode,
         )
 
     def encrypt(

@@ -105,9 +105,9 @@ fn encrypt_and_serialize<'p>(
 
     // Get the mode
     let iv = types::OS_URANDOM.get(py)?.call1((16,))?;
-    let cbc_mode = types::CBC.get(py)?.call1((&iv,))?;
+    let mode = builder.getattr(pyo3::intern!(py, "_mode"))?.call1((&iv,))?;
 
-    let encrypted_content = symmetric_encrypt(py, algorithm, cbc_mode, &data_with_header)?;
+    let encrypted_content = symmetric_encrypt(py, algorithm, mode, &data_with_header)?;
 
     let py_recipients: Vec<pyo3::Bound<'p, x509::certificate::Certificate>> = builder
         .getattr(pyo3::intern!(py, "_recipients"))?
