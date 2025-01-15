@@ -805,7 +805,7 @@ fn verify_der<'p>(
         _ => {
             return Err(CryptographyError::from(
                 pyo3::exceptions::PyValueError::new_err(
-                    "The PKCS7 data is not an SignedData structure.",
+                    "The PKCS7 data is not a SignedData structure.",
                 ),
             ));
         }
