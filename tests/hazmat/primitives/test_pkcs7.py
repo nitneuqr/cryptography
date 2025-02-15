@@ -958,19 +958,33 @@ class TestPKCS7Verify:
         with pytest.raises(ValueError):
             pkcs7.pkcs7_verify_der(signature, None, certificate, [])
 
-    def test_pkcs7_verify_der_not_signed(self, backend, data):
-        # Encryption of data with a text/html content type header
-        certificate, _ = _load_rsa_cert_key()
+    def test_pkcs7_verify_invalid_signature(
+        self, backend, data, certificate, private_key
+    ):
+        # Signature
         builder = (
-            pkcs7.PKCS7EnvelopeBuilder()
-            .set_data(b"Hello world!")
-            .add_recipient(certificate)
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(data)
+            .add_signer(certificate, private_key, hashes.SHA256())
         )
-        enveloped = builder.encrypt(serialization.Encoding.DER, [])
+        options = [pkcs7.PKCS7Options.NoAttributes]
+        signature = builder.sign(serialization.Encoding.DER, options)
+
+        # Verification
+        with pytest.raises(exceptions.InvalidSignature):
+            pkcs7.pkcs7_verify_der(signature, b"Different", certificate, [])
+
+    def test_pkcs7_verify_der_not_signed(self, backend, data, certificate):
+        # Getting some enveloped data
+        enveloped = load_vectors_from_file(
+            os.path.join("pkcs7", "enveloped.pem"),
+            loader=lambda pemfile: pemfile.read(),
+            mode="rb",
+        )
 
         # Verification
         with pytest.raises(ValueError):
-            pkcs7.pkcs7_verify_der(enveloped, None, certificate, [])
+            pkcs7.pkcs7_verify_pem(enveloped, None, certificate, [])
 
     def test_pkcs7_verify_der_wrong_certificate(
         self, backend, data, certificate, private_key
