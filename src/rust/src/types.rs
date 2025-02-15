@@ -375,6 +375,11 @@ pub static SMIME_SIGNED_ENCODE: LazyPyImport = LazyPyImport::new(
     &["_smime_signed_encode"],
 );
 
+pub static SMIME_SIGNED_DECODE: LazyPyImport = LazyPyImport::new(
+    "cryptography.hazmat.primitives.serialization.pkcs7",
+    &["_smime_signed_decode"],
+);
+
 pub static PKCS12KEYANDCERTIFICATES: LazyPyImport = LazyPyImport::new(
     "cryptography.hazmat.primitives.serialization.pkcs12",
     &["PKCS12KeyAndCertificates"],
