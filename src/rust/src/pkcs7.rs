@@ -779,11 +779,11 @@ fn verify_der<'p>(
             // in the signed data, then the provided content. If None of these are available, raise
             // an error.  TODO: what should the order be?
             let data = match signer_info.authenticated_attributes {
-                Some(attrs) => &asn1::write_single(&attrs)?,
+                Some(attrs) => Cow::Owned(asn1::write_single(&attrs)?),
                 None => match content {
-                    Some(data) => data,
+                    Some(data) => Cow::Borrowed(data),
                     None => match signed_data.content_info.content {
-                        pkcs7::Content::Data(Some(data)) => data.into_inner(),
+                        pkcs7::Content::Data(Some(data)) => Cow::Borrowed(data.into_inner()),
                         _ => {
                             return Err(CryptographyError::from(
                                 pyo3::exceptions::PyValueError::new_err(
@@ -801,7 +801,7 @@ fn verify_der<'p>(
                 certificate.call_method0(pyo3::intern!(py, "public_key"))?,
                 &signer_info.digest_encryption_algorithm,
                 signer_info.encrypted_digest,
-                data,
+                &data,
             )?;
 
             // Verify the certificate
