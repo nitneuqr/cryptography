@@ -25,7 +25,6 @@ use crate::padding::PKCS7UnpaddingContext;
 use crate::pkcs12::symmetric_encrypt;
 #[cfg(not(CRYPTOGRAPHY_IS_BORINGSSL))]
 use crate::utils::cstr_from_literal;
-#[cfg(not(CRYPTOGRAPHY_IS_BORINGSSL))]
 use crate::x509::certificate::load_der_x509_certificate;
 use crate::{exceptions, types, x509};
 
