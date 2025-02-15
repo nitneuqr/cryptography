@@ -804,7 +804,14 @@ fn verify_der<'p>(
                 data,
             )?;
 
-            // TODO: verify the certificates?
+            // Verify the certificate
+            if !options.contains(types::PKCS7_NO_VERIFY.get(py)?)? {
+                let certificates = pyo3::types::PyList::empty(py);
+                certificates.append(certificate)?;
+                types::VERIFY_PKCS7_CERTIFICATES
+                    .get(py)?
+                    .call1((certificates,))?;
+            }
         }
         _ => {
             return Err(CryptographyError::from(
@@ -829,6 +836,18 @@ fn check_verify_options<'p>(
             return Err(CryptographyError::from(
                 pyo3::exceptions::PyValueError::new_err(
                     "options must be from the PKCS7Options enum",
+                ),
+            ));
+        }
+    }
+
+    // Check if any option is not PKCS7Options::NoVerify
+    let no_verify_option = types::PKCS7_NO_VERIFY.get(py)?;
+    for opt in options.iter() {
+        if !opt.eq(no_verify_option.clone())? {
+            return Err(CryptographyError::from(
+                pyo3::exceptions::PyValueError::new_err(
+                    "Only the following options are supported for verification: NoVerify",
                 ),
             ));
         }

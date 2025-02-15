@@ -939,6 +939,21 @@ class TestPKCS7Verify:
         # Verification
         pkcs7.pkcs7_verify_der(signature, None, certificate, [])
 
+    def test_pkcs7_verify_der_no_verify(
+        self, backend, data, certificate, private_key
+    ):
+        # Signature
+        builder = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(data)
+            .add_signer(certificate, private_key, hashes.SHA256())
+        )
+        signature = builder.sign(serialization.Encoding.DER, [])
+
+        # Verification
+        options = [pkcs7.PKCS7Options.NoVerify]
+        pkcs7.pkcs7_verify_der(signature, data, certificate, options)
+
     def test_pkcs7_verify_der_no_data(
         self, backend, data, certificate, private_key
     ):

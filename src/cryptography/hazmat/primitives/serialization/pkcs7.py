@@ -21,6 +21,7 @@ from cryptography.hazmat.primitives.ciphers import (
     algorithms,
 )
 from cryptography.utils import _check_byteslike
+from cryptography.x509.verification import PolicyBuilder, Store
 
 load_pem_pkcs7_certificates = rust_pkcs7.load_pem_pkcs7_certificates
 
@@ -51,6 +52,7 @@ class PKCS7Options(utils.Enum):
     NoCapabilities = "Don't embed SMIME capabilities"
     NoAttributes = "Don't embed authenticatedAttributes"
     NoCerts = "Don't embed signer certificate"
+    NoVerify = "Don't verify signers certificate"
 
 
 class PKCS7SignatureBuilder:
@@ -388,6 +390,12 @@ def _smime_signed_decode(data: bytes) -> tuple[bytes | None, bytes]:
         return None, bytes(message.get_payload(decode=True))
     else:
         raise ValueError("Not an S/MIME signed message")
+
+
+def _verify_pkcs7_certificates(certificates: list[x509.Certificate]) -> None:
+    builder = PolicyBuilder().store(Store(certificates))
+    verifier = builder.build_client_verifier()
+    verifier.verify(certificates[0], certificates[1:])
 
 
 def _smime_enveloped_encode(data: bytes) -> bytes:
