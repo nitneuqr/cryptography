@@ -904,7 +904,7 @@ fn check_verify_options<'p>(
         }
     }
 
-    // Check if any option is not PKCS7Options::NoVerify
+    // Check that all options are PKCS7Options::NoVerify or PKCS7Options::NoSigs
     let no_verify_option = types::PKCS7_NO_VERIFY.get(py)?;
     let no_sigs_option = types::PKCS7_NO_SIGS.get(py)?;
     for opt in options.iter() {

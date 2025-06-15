@@ -1823,9 +1823,11 @@ contain certificates, CRLs, and much more. PKCS7 files commonly have a ``p7b``,
 
     .. attribute:: NoVerify
 
-        For S/MIME verification only. Don't verify signers certificate. This is 
-        useful when the signer's certificate is not available or when the signer's
-        certificate is not trusted.
+        For S/MIME verification only. Don't verify signers certificate.
+
+    .. attribute:: NoSigs
+
+        For S/MIME verification only. Don't verify the signature.
 
 Serialization Formats
 ~~~~~~~~~~~~~~~~~~~~~
