@@ -1047,14 +1047,25 @@ class TestPKCS7Verify:
             pkcs7.pkcs7_verify_der(b"", certificate=b"wrong_type")  # type: ignore[arg-type]
 
     @pytest.mark.parametrize(
-        "signing_options",
+        "invalid_options",
+        [
+            [b"invalid"],
+            [pkcs7.PKCS7Options.Binary],
+        ],
+    )
+    def test_pkcs7_verify_invalid_options(self, backend, invalid_options):
+        with pytest.raises(ValueError):
+            pkcs7.pkcs7_verify_der(b"", options=invalid_options)
+
+    @pytest.mark.parametrize(
+        "options",
         [
             [],
             [pkcs7.PKCS7Options.NoAttributes],
         ],
     )
     def test_pkcs7_verify_der(
-        self, backend, data, certificate, private_key, signing_options
+        self, backend, data, certificate, private_key, options
     ):
         # Signature
         builder = (
@@ -1062,10 +1073,31 @@ class TestPKCS7Verify:
             .set_data(data)
             .add_signer(certificate, private_key, hashes.SHA256())
         )
-        signature = builder.sign(serialization.Encoding.DER, signing_options)
+        signature = builder.sign(serialization.Encoding.DER, options=options)
 
         # Verification
         pkcs7.pkcs7_verify_der(signature)
+
+    @pytest.mark.parametrize(
+        "options",
+        [
+            [pkcs7.PKCS7Options.NoVerify],
+            [pkcs7.PKCS7Options.NoSigs],
+        ],
+    )
+    def test_pkcs7_verify_der_with_options(
+        self, backend, data, certificate, private_key, options
+    ):
+        # Signature
+        builder = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(data)
+            .add_signer(certificate, private_key, hashes.SHA256())
+        )
+        signature = builder.sign(serialization.Encoding.DER, [])
+
+        # Verification
+        pkcs7.pkcs7_verify_der(signature, options=options)
 
     def test_pkcs7_verify_der_with_certificate(
         self, backend, data, certificate, private_key
@@ -1146,21 +1178,6 @@ class TestPKCS7Verify:
         # Verification
         with pytest.raises(ValueError):
             pkcs7.pkcs7_verify_der(signature)
-
-    def test_pkcs7_verify_der_ecdsa_certificate(self, backend, data):
-        # Getting an ECDSA certificate
-        certificate, private_key = _load_cert_key()
-
-        # Signature
-        builder = (
-            pkcs7.PKCS7SignatureBuilder()
-            .set_data(data)
-            .add_signer(certificate, private_key, hashes.SHA256())
-        )
-        signature = builder.sign(serialization.Encoding.DER, [])
-
-        # Verification with another certificate
-        pkcs7.pkcs7_verify_der(signature)
 
     def test_pkcs7_verify_invalid_signature(
         self, backend, data, certificate, private_key
