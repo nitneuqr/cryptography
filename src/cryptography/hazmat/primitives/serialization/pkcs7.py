@@ -493,16 +493,14 @@ def _smime_signed_decode(data: bytes) -> tuple[bytes | None, bytes]:
             raise ValueError(
                 "Malformed multipart/signed message: must be multipart"
             )
-        if not isinstance(payload[0], email.message.Message):
-            raise ValueError(
-                "Malformed multipart/signed message: first part (content) "
-                "must be a MIME message"
-            )
-        if not isinstance(payload[1], email.message.Message):
-            raise ValueError(
-                "Malformed multipart/signed message: second part (signature) "
-                "must be a MIME message"
-            )
+        assert isinstance(payload[0], email.message.Message), (
+            "Malformed multipart/signed message: first part (content) "
+            "must be a MIME message"
+        )
+        assert isinstance(payload[1], email.message.Message), (
+            "Malformed multipart/signed message: second part (signature) "
+            "must be a MIME message"
+        )
         return (
             bytes(payload[0].get_payload(decode=True)),
             bytes(payload[1].get_payload(decode=True)),
