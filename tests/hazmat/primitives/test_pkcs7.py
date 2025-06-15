@@ -1020,7 +1020,7 @@ class TestPKCS7Verify:
     @pytest.fixture(name="certificate")
     def fixture_certificate(self, backend) -> x509.Certificate:
         return load_vectors_from_file(
-            os.path.join("pkcs7", "verify_cert.pem"),
+            os.path.join("pkcs7", "ca.pem"),
             loader=lambda pemfile: x509.load_pem_x509_certificate(
                 pemfile.read()
             ),
@@ -1030,7 +1030,7 @@ class TestPKCS7Verify:
     @pytest.fixture(name="private_key")
     def fixture_private_key(self, backend) -> types.PrivateKeyTypes:
         return load_vectors_from_file(
-            os.path.join("pkcs7", "verify_key.pem"),
+            os.path.join("pkcs7", "ca_key.pem"),
             lambda pemfile: serialization.load_pem_private_key(
                 pemfile.read(), None, unsafe_skip_rsa_key_validation=True
             ),
@@ -1192,10 +1192,12 @@ class TestPKCS7Verify:
         with pytest.raises(ValueError):
             pkcs7.pkcs7_verify_der(signature, certificate=rsa_certificate)
 
-    def test_pkcs7_verify_der_unsupported_digest_algorithm(
-        self, backend, data, certificate, private_key
+    def test_pkcs7_verify_der_unsupported_rsa_digest_algorithm(
+        self, backend, data
     ):
-        # Signature
+        certificate, private_key = _load_rsa_cert_key()
+
+        # Signature with an unsupported digest algorithm
         builder = (
             pkcs7.PKCS7SignatureBuilder()
             .set_data(data)
@@ -1203,7 +1205,7 @@ class TestPKCS7Verify:
         )
         signature = builder.sign(serialization.Encoding.DER, [])
 
-        # Verification with another certificate
+        # Verification
         with pytest.raises(exceptions.UnsupportedAlgorithm):
             pkcs7.pkcs7_verify_der(signature)
 
@@ -1263,9 +1265,7 @@ class TestPKCS7Verify:
         # Verification
         pkcs7.pkcs7_verify_smime(signed, content=data)
 
-    def test_pkcs7_verify_smime_opaque_signing(
-        self, backend, data, certificate, private_key
-    ):
+    def test_pkcs7_verify_smime_opaque_signing(self, backend):
         # Signature
         signed = load_vectors_from_file(
             os.path.join("pkcs7", "signed-opaque.msg"),
@@ -1283,9 +1283,7 @@ class TestPKCS7Verify:
             b"Content-Type: multipart/signed;\nHello world!",
         ],
     )
-    def test_pkcs7_verify_smime_wrong_format(
-        self, backend, data, certificate, signature
-    ):
+    def test_pkcs7_verify_smime_wrong_format(self, backend, signature):
         with pytest.raises(ValueError):
             pkcs7.pkcs7_verify_smime(signature)
 
