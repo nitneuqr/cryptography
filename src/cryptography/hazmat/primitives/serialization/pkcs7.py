@@ -511,8 +511,54 @@ def _smime_signed_decode(data: bytes) -> tuple[bytes | None, bytes]:
         raise ValueError("Not an S/MIME signed message")
 
 
+def get_smime_x509_extension_policies() -> tuple[
+    ExtensionPolicy, ExtensionPolicy
+]:
+    """
+    Gets the default X.509 extension policy for S/MIME. Some specifications
+    that differ from the standard ones:
+    - Certificates used as end entities (i.e., the cert used to sign
+      a PKCS#7/SMIME message) should not have ca=true in their basic
+      constraints extension.
+    - EKU_CLIENT_AUTH_OID is not required
+    - EKU_EMAIL_PROTECTION_OID is required
+    """
+
+    # CA policy
+    def _validate_ca(
+        policy: Policy, cert: Certificate, bc: x509.BasicConstraints
+    ):
+        assert not bc.ca
+
+    ca_policy = ExtensionPolicy.permit_all().require_present(
+        x509.BasicConstraints,
+        Criticality.AGNOSTIC,
+        _validate_ca,
+    )
+
+    # EE policy
+    def _validate_eku(
+        policy: Policy, cert: Certificate, eku: x509.ExtendedKeyUsage
+    ):
+        # Checking for EKU_EMAIL_PROTECTION_OID
+        assert x509.ExtendedKeyUsageOID.EMAIL_PROTECTION in eku  # type: ignore[attr-defined]
+
+    ee_policy = ExtensionPolicy.permit_all().require_present(
+        x509.ExtendedKeyUsage,
+        Criticality.AGNOSTIC,
+        _validate_eku,
+    )
+
+    return ca_policy, ee_policy
+
+
 def _verify_pkcs7_certificates(certificates: list[x509.Certificate]) -> None:
-    builder = PolicyBuilder().store(Store(certificates))
+    builder = (
+        PolicyBuilder()
+        .store(Store(certificates))
+        .extension_policies(*get_smime_x509_extension_policies())
+    )
+
     verifier = builder.build_client_verifier()
     verifier.verify(certificates[0], certificates[1:])
 
