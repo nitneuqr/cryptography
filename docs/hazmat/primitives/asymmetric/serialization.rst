@@ -1433,13 +1433,6 @@ contain certificates, CRLs, and much more. PKCS7 files commonly have a ``p7b``,
         the signed message. If None, the function will look for the signer certificate in the signed
         message. Defaults to None.
     :type certificate: :class:`~cryptography.x509.Certificate` or None
-
-    :param options: A list of
-        :class:`~cryptography.hazmat.primitives.serialization.pkcs7.PKCS7Options`. For this
-        operation, the `NoSigs` and `NoVerify` options are supported. If `NoSigs` is specified, the
-        function will not verify the signature in the PKCS#7 message. If `NoVerify` is specified,
-        the function will not verify the certificates in the PKCS#7 message. Defaults to None. 
-    :type options: list[`~cryptography.x509.Certificate`] or None
     
     :raises ValueError: If the recipient certificate does not match any of the signers in the
         PKCS7 data.
@@ -1485,13 +1478,6 @@ contain certificates, CRLs, and much more. PKCS7 files commonly have a ``p7b``,
         the signed message. If None, the function will look for the signer certificate in the signed
         message. Defaults to None.
     :type certificate: :class:`~cryptography.x509.Certificate` or None
-
-    :param options: A list of
-        :class:`~cryptography.hazmat.primitives.serialization.pkcs7.PKCS7Options`. For this
-        operation, the `NoSigs` and `NoVerify` options are supported. If `NoSigs` is specified, the
-        function will not verify the signature in the PKCS#7 message. If `NoVerify` is specified,
-        the function will not verify the certificates in the PKCS#7 message. Defaults to None. 
-    :type options: list[`~cryptography.x509.Certificate`] or None
 
     :raises ValueError: If the PEM data does not have the PKCS7 tag.
     
@@ -1541,14 +1527,6 @@ contain certificates, CRLs, and much more. PKCS7 files commonly have a ``p7b``,
         the signed message. If None, the function will look for the signer certificate in the signed
         message. Defaults to None.
     :type certificate: :class:`~cryptography.x509.Certificate` or None
-
-    :param options: A list of
-        :class:`~cryptography.hazmat.primitives.serialization.pkcs7.PKCS7Options`. For this
-        operation, the `NoSigs` and `NoVerify` options are supported. If `NoSigs` is specified, the
-        function will not verify the signature in the PKCS#7 message. If `NoVerify` is specified,
-        the function will not verify the certificates in the PKCS#7 message. Defaults to None. 
-    :type options: list[`~cryptography.x509.Certificate`] or None
-
 
     :raises ValueError: If the MIME message is not a S/MIME signed message: content type is
         different than ``multipart/signed`` or ``application/pkcs7-mime``.
@@ -1856,11 +1834,6 @@ contain certificates, CRLs, and much more. PKCS7 files commonly have a ``p7b``,
         obtain the signer's certificate by other means (for example from a
         previously signed message).
 
-    .. attribute:: NoVerify
-
-        For S/MIME verification only. Don't verify signers certificate. This is 
-        useful when the signer's certificate is not available or when the signer's
-        certificate is not trusted.
 
 Serialization Formats
 ~~~~~~~~~~~~~~~~~~~~~

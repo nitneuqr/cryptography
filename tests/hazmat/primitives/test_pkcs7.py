@@ -1042,17 +1042,6 @@ class TestPKCS7Verify:
             pkcs7.pkcs7_verify_der(b"", certificate=b"wrong_type")  # type: ignore[arg-type]
 
     @pytest.mark.parametrize(
-        "invalid_options",
-        [
-            [b"invalid"],
-            [pkcs7.PKCS7Options.Binary],
-        ],
-    )
-    def test_pkcs7_verify_invalid_options(self, backend, invalid_options):
-        with pytest.raises(ValueError):
-            pkcs7.pkcs7_verify_der(b"", options=invalid_options)
-
-    @pytest.mark.parametrize(
         "signing_options",
         [
             [],
@@ -1072,27 +1061,6 @@ class TestPKCS7Verify:
 
         # Verification
         pkcs7.pkcs7_verify_der(signature)
-
-    @pytest.mark.parametrize(
-        "options",
-        [
-            [pkcs7.PKCS7Options.NoVerify],
-            [pkcs7.PKCS7Options.NoSigs],
-        ],
-    )
-    def test_pkcs7_verify_der_with_options(
-        self, backend, data, certificate, private_key, options
-    ):
-        # Signature
-        builder = (
-            pkcs7.PKCS7SignatureBuilder()
-            .set_data(data)
-            .add_signer(certificate, private_key, hashes.SHA256())
-        )
-        signature = builder.sign(serialization.Encoding.DER, [])
-
-        # Verification
-        pkcs7.pkcs7_verify_der(signature, options=options)
 
     def test_pkcs7_verify_der_with_certificate(
         self, backend, data, certificate, private_key
@@ -1187,8 +1155,7 @@ class TestPKCS7Verify:
         signature = builder.sign(serialization.Encoding.DER, [])
 
         # Verification with another certificate
-        options = [pkcs7.PKCS7Options.NoVerify]
-        pkcs7.pkcs7_verify_der(signature, options=options)
+        pkcs7.pkcs7_verify_der(signature)
 
     def test_pkcs7_verify_invalid_signature(
         self, backend, data, certificate, private_key
@@ -1250,7 +1217,7 @@ class TestPKCS7Verify:
         signature = builder.sign(serialization.Encoding.PEM, [])
 
         # Verification
-        pkcs7.pkcs7_verify_pem(signature, data, certificate, [])
+        pkcs7.pkcs7_verify_pem(signature, data, certificate)
 
     def test_pkcs7_verify_pem_with_wrong_tag(self, backend, data, certificate):
         with pytest.raises(ValueError):

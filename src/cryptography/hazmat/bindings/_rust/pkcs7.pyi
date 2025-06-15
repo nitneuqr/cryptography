@@ -46,19 +46,16 @@ def verify_der(
     signature: bytes,
     content: bytes | None = None,
     certificate: x509.Certificate | None = None,
-    options: Iterable[pkcs7.PKCS7Options] | None = None,
 ) -> None: ...
 def verify_pem(
     signature: bytes,
     content: bytes | None = None,
     certificate: x509.Certificate | None = None,
-    options: Iterable[pkcs7.PKCS7Options] | None = None,
 ) -> None: ...
 def verify_smime(
     signature: bytes,
     content: bytes | None = None,
     certificate: x509.Certificate | None = None,
-    options: Iterable[pkcs7.PKCS7Options] | None = None,
 ) -> None: ...
 def load_pem_pkcs7_certificates(
     data: bytes,
