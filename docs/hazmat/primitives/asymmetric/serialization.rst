@@ -1340,6 +1340,154 @@ contain certificates, CRLs, and much more. PKCS7 files commonly have a ``p7b``,
         :returns bytes: The signed PKCS7 message.
 
 
+.. function:: pkcs7_verify_der(data, content, certificate, options)
+
+    .. versionadded:: 45.0.0
+
+    .. doctest::
+
+        >>> from cryptography import x509
+        >>> from cryptography.hazmat.primitives import hashes, serialization
+        >>> from cryptography.hazmat.primitives.serialization import pkcs7
+        >>> cert = x509.load_pem_x509_certificate(ca_cert)
+        >>> key = serialization.load_pem_private_key(ca_key, None)
+        >>> signed = pkcs7.PKCS7SignatureBuilder().set_data(
+        ...     b"data to sign"
+        ... ).add_signer(
+        ...     cert, key, hashes.SHA256()
+        ... ).sign(
+        ...     serialization.Encoding.DER, []
+        ... )
+        >>> pkcs7.pkcs7_verify_der(signed, None, cert, [])
+
+    Deserialize and verify a DER-encoded PKCS7 signed message. PKCS7 (or S/MIME) has multiple
+    versions, but this supports a subset of :rfc:`5751`, also known as S/MIME Version 3.2. If the
+    verification succeeds, does not return anything. If the verification fails, raises an exception.
+
+    :param data: The data, encoded in DER format.
+    :type data: bytes
+
+    :param content: if specified, the content to verify against the signed message. If the content
+        is not specified, the function will look for the content in the signed message.
+    :type data: bytes or None
+
+    :param certificate: A :class:`~cryptography.x509.Certificate` to verify against the signed
+        message.
+
+    :param options: A list of
+        :class:`~cryptography.hazmat.primitives.serialization.pkcs7.PKCS7Options`. For 
+        this operation, no options are supported as of now.
+    
+    :raises ValueError: If the recipient certificate does not match any of the signers in the
+        PKCS7 data.
+    
+    :raises ValueError: If no content is specified and no content is found in the PKCS7 data.
+
+    :raises ValueError: If the PKCS7 data is not of the signed data type.
+
+
+.. function:: pkcs7_verify_pem(data, content, certificate, options)
+
+    .. versionadded:: 45.0.0
+
+    .. doctest::
+
+        >>> from cryptography import x509
+        >>> from cryptography.hazmat.primitives import hashes, serialization
+        >>> from cryptography.hazmat.primitives.serialization import pkcs7
+        >>> cert = x509.load_pem_x509_certificate(ca_cert)
+        >>> key = serialization.load_pem_private_key(ca_key, None)
+        >>> signed = pkcs7.PKCS7SignatureBuilder().set_data(
+        ...     b"data to sign"
+        ... ).add_signer(
+        ...     cert, key, hashes.SHA256()
+        ... ).sign(
+        ...     serialization.Encoding.PEM, []
+        ... )
+        >>> pkcs7.pkcs7_verify_pem(signed, None, cert, [])
+
+    Deserialize and verify a PEM-encoded PKCS7 signed message. PKCS7 (or S/MIME) has multiple
+    versions, but this supports a subset of :rfc:`5751`, also known as S/MIME Version 3.2. If the
+    verification succeeds, does not return anything. If the verification fails, raises an exception.
+
+    :param data: The data, encoded in PEM format.
+    :type data: bytes
+
+    :param content: if specified, the content to verify against the signed message. If the content
+        is not specified, the function will look for the content in the signed message.
+    :type data: bytes or None
+
+    :param certificate: A :class:`~cryptography.x509.Certificate` to verify against the signed
+        message.
+
+    :param options: A list of
+        :class:`~cryptography.hazmat.primitives.serialization.pkcs7.PKCS7Options`. For 
+        this operation, no options are supported as of now.
+
+    :raises ValueError: If the PEM data does not have the PKCS7 tag.
+    
+    :raises ValueError: If the recipient certificate does not match any of the signers in the
+        PKCS7 data.
+    
+    :raises ValueError: If no content is specified and no content is found in the PKCS7 data.
+
+    :raises ValueError: If the PKCS7 data is not of the signed data type.
+
+
+.. function:: pkcs7_verify_smime(data, content, certificate, options)
+
+    .. versionadded:: 45.0.0
+
+    .. doctest::
+
+        >>> from cryptography import x509
+        >>> from cryptography.hazmat.primitives import hashes, serialization
+        >>> from cryptography.hazmat.primitives.serialization import pkcs7
+        >>> cert = x509.load_pem_x509_certificate(ca_cert)
+        >>> key = serialization.load_pem_private_key(ca_key, None)
+        >>> signed = pkcs7.PKCS7SignatureBuilder().set_data(
+        ...     b"data to sign"
+        ... ).add_signer(
+        ...     cert, key, hashes.SHA256()
+        ... ).sign(
+        ...     serialization.Encoding.SMIME, []
+        ... )
+        >>> pkcs7.pkcs7_verify_smime(signed, None, cert, [])
+
+    Verify a PKCS7 signed message stored in a MIME message, by reading it, extracting the content
+    (if any) and signature, deserializing the signature and verifying it against the content. PKCS7
+    (or S/MIME) has multiple versions, but this supports a subset of :rfc:`5751`, also known as
+    S/MIME Version 3.2. If the verification succeeds, does not return anything. If the verification
+    fails, raises an exception.  
+
+    :param data: The data, encoded in MIME format.
+    :type data: bytes
+
+    :param content: if specified, the content to verify against the signed message. If the content
+        is not specified, the function will look for the content in the MIME message and in the
+        signature.
+    :type data: bytes or None
+
+    :param certificate: A :class:`~cryptography.x509.Certificate` to verify against the signed
+        message.
+
+    :param options: A list of
+        :class:`~cryptography.hazmat.primitives.serialization.pkcs7.PKCS7Options`. For 
+        this operation, no options are supported as of now.
+
+    :raises ValueError: If the MIME message is not a S/MIME signed message: content type is
+        different than ``multipart/signed`` or ``application/pkcs7-mime``.
+    
+    :raises ValueError: If the MIME message is a malformed ``multipart/signed`` S/MIME message: not
+        multipart, or multipart with more than 2 parts (content & signature).
+    
+    :raises ValueError: If the recipient certificate does not match any of the signers in the
+        PKCS7 data.
+    
+    :raises ValueError: If no content is specified and no content is found in the PKCS7 data.
+
+    :raises ValueError: If the PKCS7 data is not of the signed data type.
+
 .. class:: PKCS7EnvelopeBuilder
 
     The PKCS7 envelope builder can create encrypted S/MIME messages,

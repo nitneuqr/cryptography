@@ -1003,6 +1003,175 @@ class TestPKCS7SignatureBuilder:
         )
 
 
+@pytest.mark.supported(
+    only_if=lambda backend: backend.pkcs7_supported(),
+    skip_message="Requires OpenSSL with PKCS7 support",
+)
+class TestPKCS7Verify:
+    @pytest.fixture(name="data")
+    def fixture_data(self, backend) -> bytes:
+        return b"Hello world!"
+
+    @pytest.fixture(name="certificate")
+    def fixture_certificate(self, backend) -> x509.Certificate:
+        certificate, _ = _load_cert_key()
+        return certificate
+
+    @pytest.fixture(name="private_key")
+    def fixture_private_key(self, backend) -> rsa.RSAPrivateKey:
+        _, private_key = _load_cert_key()
+        return private_key
+
+    def test_not_a_cert(self, backend):
+        with pytest.raises(TypeError):
+            pkcs7.pkcs7_verify_der(b"", b"", b"wrong_type", [])  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize(
+        "invalid_options",
+        [
+            [b"invalid"],
+        ],
+    )
+    def test_pkcs7_verify_invalid_options(
+        self, backend, invalid_options, certificate
+    ):
+        with pytest.raises(ValueError):
+            pkcs7.pkcs7_verify_der(b"", b"", certificate, invalid_options)
+
+    @pytest.mark.parametrize(
+        "signing_options",
+        [
+            [],
+            [pkcs7.PKCS7Options.NoAttributes],
+            [
+                pkcs7.PKCS7Options.NoAttributes,
+                pkcs7.PKCS7Options.DetachedSignature,
+            ],
+        ],
+    )
+    def test_pkcs7_verify_der(
+        self, backend, data, certificate, private_key, signing_options
+    ):
+        # Signature
+        builder = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(data)
+            .add_signer(certificate, private_key, hashes.SHA256())
+        )
+        signature = builder.sign(serialization.Encoding.DER, signing_options)
+
+        # Verification
+        pkcs7.pkcs7_verify_der(signature, data, certificate, [])
+
+    def test_pkcs7_verify_der_no_data(
+        self, backend, data, certificate, private_key
+    ):
+        # Signature
+        builder = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(data)
+            .add_signer(certificate, private_key, hashes.SHA256())
+        )
+        options = [
+            pkcs7.PKCS7Options.NoAttributes,
+            pkcs7.PKCS7Options.DetachedSignature,
+        ]
+        signature = builder.sign(serialization.Encoding.DER, options)
+
+        # Verification
+        with pytest.raises(ValueError):
+            pkcs7.pkcs7_verify_der(signature, None, certificate, [])
+
+    def test_pkcs7_verify_der_wrong_certificate(
+        self, backend, data, certificate, private_key
+    ):
+        # Signature
+        builder = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(data)
+            .add_signer(certificate, private_key, hashes.SHA256())
+        )
+        signature = builder.sign(serialization.Encoding.DER, [])
+
+        # Verification with another certificate
+        rsa_certificate, _ = _load_rsa_cert_key()
+        with pytest.raises(ValueError):
+            pkcs7.pkcs7_verify_der(signature, None, rsa_certificate, [])
+
+    def test_pkcs7_verify_pem(self, backend, data, certificate, private_key):
+        # Signature
+        builder = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(data)
+            .add_signer(certificate, private_key, hashes.SHA256())
+        )
+        signature = builder.sign(serialization.Encoding.PEM, [])
+
+        # Verification
+        pkcs7.pkcs7_verify_pem(signature, data, certificate, [])
+
+    def test_pkcs7_verify_pem_with_wrong_tag(self, backend, data, certificate):
+        with pytest.raises(ValueError):
+            pkcs7.pkcs7_verify_pem(
+                certificate.public_bytes(serialization.Encoding.PEM),
+                data,
+                certificate,
+                [],
+            )
+
+    def test_pkcs7_verify_smime(self, backend, data, certificate, private_key):
+        # Signature
+        builder = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(data)
+            .add_signer(certificate, private_key, hashes.SHA256())
+        )
+        signed = builder.sign(serialization.Encoding.SMIME, [])
+
+        # Verification
+        pkcs7.pkcs7_verify_smime(signed, data, certificate, [])
+
+    def test_pkcs7_verify_smime_without_content_argument(
+        self, backend, data, certificate, private_key
+    ):
+        # Signature
+        builder = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(data)
+            .add_signer(certificate, private_key, hashes.SHA256())
+        )
+        signed = builder.sign(serialization.Encoding.SMIME, [])
+
+        # Verification
+        pkcs7.pkcs7_verify_smime(signed, None, certificate, [])
+
+    def test_pkcs7_verify_smime_opaque_signing(
+        self, backend, data, certificate, private_key
+    ):
+        # Signature
+        signed = load_vectors_from_file(
+            os.path.join("pkcs7", "signed-opaque.msg"),
+            loader=lambda file: file.read(),
+            mode="rb",
+        )
+
+        # Verification
+        pkcs7.pkcs7_verify_smime(signed, None, certificate, [])
+
+    @pytest.mark.parametrize(
+        "signature",
+        [
+            b"Content-Type: text/plain;\nHello world!",
+            b"Content-Type: multipart/signed;\nHello world!",
+        ],
+    )
+    def test_pkcs7_verify_smime_wrong_format(
+        self, backend, data, certificate, signature
+    ):
+        with pytest.raises(ValueError):
+            pkcs7.pkcs7_verify_smime(signature, data, certificate, [])
+
+
 def _load_rsa_cert_key():
     key = load_vectors_from_file(
         os.path.join("x509", "custom", "ca", "rsa_key.pem"),

@@ -307,6 +307,11 @@ class PKCS7SignatureBuilder:
         return rust_pkcs7.sign_and_serialize(self, encoding, options)
 
 
+pkcs7_verify_der = rust_pkcs7.verify_der
+pkcs7_verify_pem = rust_pkcs7.verify_pem
+pkcs7_verify_smime = rust_pkcs7.verify_smime
+
+
 class PKCS7EnvelopeBuilder:
     def __init__(
         self,
@@ -477,6 +482,35 @@ def _smime_signed_encode(
     )
     g.flatten(m)
     return fp.getvalue()
+
+
+def _smime_signed_decode(data: bytes) -> tuple[bytes | None, bytes]:
+    message = email.message_from_bytes(data)
+    content_type = message.get_content_type()
+    if content_type == "multipart/signed":
+        payload = message.get_payload()
+        if not isinstance(payload, list):
+            raise ValueError(
+                "Malformed multipart/signed message: must be multipart"
+            )
+        if not isinstance(payload[0], email.message.Message):
+            raise ValueError(
+                "Malformed multipart/signed message: first part (content) "
+                "must be a MIME message"
+            )
+        if not isinstance(payload[1], email.message.Message):
+            raise ValueError(
+                "Malformed multipart/signed message: second part (signature) "
+                "must be a MIME message"
+            )
+        return (
+            bytes(payload[0].get_payload(decode=True)),
+            bytes(payload[1].get_payload(decode=True)),
+        )
+    elif content_type == "application/pkcs7-mime":
+        return None, bytes(message.get_payload(decode=True))
+    else:
+        raise ValueError("Not an S/MIME signed message")
 
 
 def _smime_enveloped_encode(data: bytes) -> bytes:

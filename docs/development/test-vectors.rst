@@ -1009,6 +1009,9 @@ Custom PKCS7 Test Vectors
   & verification. It has an ASCII subject alternative name stored as `otherName`.
 * ``pkcs7/ca_non_ascii_san.pem`` - An invalid certificate adapted for S/MIME signature 
   & verification. It has an non-ASCII subject alternative name  stored as `rfc822Name`.
+* ``pkcs7/signed-opaque.msg``- A PKCS7 signed message, signed using opaque 
+  signing (``application/pkcs7-mime`` content type), signed under the
+  private key of ``x509/custom/ca/ca.pem``, ``x509/custom/ca/ca_key.pem``.
 
 Custom OpenSSH Test Vectors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
