@@ -59,6 +59,7 @@ class PKCS7Options(utils.Enum):
     NoAttributes = "Don't embed authenticatedAttributes"
     NoCerts = "Don't embed signer certificate"
     NoVerify = "Don't verify signers certificate"
+    NoSigs = "Don't verify signature"
 
 
 def pkcs7_x509_extension_policies() -> tuple[ExtensionPolicy, ExtensionPolicy]:
